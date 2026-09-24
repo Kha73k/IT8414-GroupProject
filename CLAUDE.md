@@ -118,12 +118,22 @@ under its owner's name (see "Commits on a shared machine").
 
 ## Notebook builder and snapshots
 
-The notebook is **generated**, not hand-edited, until Phase 8. Source lives in
-`.build/` (git-ignored, never submitted):
+All eight build phases are complete. The notebook was **generated** from
+`.build/` (git-ignored, never submitted) while it was being built:
 
 - `nbbuild.py` — `md()` / `code()` cell helpers; `AUTHOR` sets the tag.
 - `sec_*.py` — one module per notebook section group.
 - `build.py` — sets the author per section and writes `IT8414_HAR.ipynb`.
+- `sec_demo.py` — Appendix A (live demonstration), owned by Ahmad.
+- `sync_markdown.py` — copy markdown-only edits into the executed notebook.
+- `transplant.py` — rebuild and carry outputs over when a change cannot alter
+  any output (for example moving a definition), keeping cell ids stable.
+
+**After Phase 8 the executed `.ipynb` in git is the source of truth.** The team
+may now edit it by hand. Before Claude changes the notebook again, check whether
+the committed notebook still matches the builder (`sync_markdown.py` refuses
+when code differs). If the team has hand-edited it, edit the notebook directly
+rather than regenerating it, or regenerating will silently discard their work.
 
 Rebuild and execute from the repo root:
 
@@ -158,19 +168,27 @@ identity (subject to the commit rules above), then the final working tree.
 | `phase5` | 7.0 (plus `augment` in CONFIG, 1.0; `augment_batch` in 5.2; `build_model` in its own cell, 6.3) | Khalifa Alhashel |
 | `phase6` | 8.0 | Rashed Ramadham |
 | `phase7` | 9.0, 10.0 | Rashed Ramadham |
+| `phase8` | `predict` moved into §6.3 helper cell (Khalifa); Appendix A + intro (Ahmad); §8.6 `curve_kwargs` fix (Rashed); README, HTML (Khalifa) | per part |
 
 Add a row per phase as snapshots are taken.
 
 ## Demo-day checklist (Phase 8)
 
-- Dataset available offline on the demo machine. Environment failures on the day
-  are explicitly not grounds for a re-sit.
-- Saved model + a standalone inference cell that runs on a tutor-supplied input.
-- Full retrain verified under 2 minutes.
-- HTML export of the executed notebook alongside the `.ipynb`.
-- `README.md` with library versions and reproduction steps.
-- Submission ZIP named `IT8414_Group[NN]_[ShortProjectTitle].zip`, plus a GitHub
-  link. Exclude `.build/`, `.venv/` and `data/` from the ZIP.
+Done:
+
+- Saved model + standalone inference cell on a tutor-chosen window (Appendix A).
+- Retrain verified under 2 minutes (23 s single-threaded).
+- HTML export of the executed notebook (`IT8414_HAR.html`).
+- `README.md` with versions, reproduction steps and the demo procedure.
+
+Still the team's:
+
+- Install the environment and copy `data/` onto the demo machine; rehearse the
+  warm-up there. Environment failures on the day are not grounds for a re-sit.
+- Group number and member IDs in the notebook title cell (currently `[NN]` and
+  `[ID]` placeholders).
+- Submission ZIP named `IT8414_Group[NN]_[ShortProjectTitle].zip`, plus the
+  GitHub link. Exclude `.build/`, `.venv/` and `data/`.
 
 ## Project decisions
 
@@ -263,9 +281,10 @@ The live demonstration runs on a **campus machine, not the development
 machine**. It is low-end and its GPU cannot be relied on. Identical code must
 run in both places, so the canonical target is CPU.
 
-This is affordable: the baseline is ~24k parameters and trains at **0.73 s per
-epoch** on the development machine (i5-12400F). A 30-epoch retrain is ~22 s, so
-even a campus PC three times slower stays inside the 2-minute budget.
+This is affordable: the baseline has 44,422 parameters and trains at about
+**0.76 s per epoch** on the development machine (i5-12400F). A full retrain with
+early stopping runs 13 epochs in ~9 s (6 threads) and ~23 s on a single thread,
+well inside the 2-minute budget.
 
 Do not add CUDA-specific code paths. Device selection is one standard line
 (`torch.device('cuda' if torch.cuda.is_available() else 'cpu')`) so the notebook
@@ -454,6 +473,31 @@ Measured in Phase 7 (§9.0 interpretability and error analysis, §10.0):
 - Full notebook: 904 s on this run, **because a game was running**
   (training 19.8 s vs ~9 s); results identical. Unloaded it is ~6.5–7 min.
   §5 summary now says "roughly 10–20 s".
+
+Measured in Phase 8 (demo hardening):
+
+- **Warm-up** = click the §6.3 markdown cell "Is the difference real, or seed
+  luck?" and use **Run → Run All Above Selected Cell** (menu item verified to
+  exist in Notebook 7.6.3). It runs §1.0–§6.2: **26 s / 38 s / 58 s** at 6 / 2 /
+  1 torch threads. One baseline retrain: **9 s / 13 s / 23 s**.
+- `predict` now lives in the `build_model` helper cell *above* the seed study,
+  so §8 is reachable after the warm-up by running only §8's load cell and its
+  `predict_proba`/`evaluate` cell.
+- **Appendix A** (Ahmad): loads `models/baseline_cnn.pt`, `classify(raw_window,
+  model)` standardises with §4.2 statistics and raises `ValueError` on a wrong
+  shape. Verified to match the in-memory model on 200 test windows. Default
+  input test window 0 (subject 2, STANDING, 99.9%, correct).
+- **Live-modification trap, verified:** after a `CONFIG` change, retraining only
+  the baseline makes the §8 load cell's CNN-LSTM assertion fail. Retraining §6.2
+  too (~10 s) fixes it. Setting `CONFIG` back and retraining both restores
+  bit-identical predictions. README documents all three.
+- **Thread count changes results in the last decimals** (a 1-thread rerun
+  rewrote figs 6–7 with different bytes). Same machine + same threads is
+  bit-identical; different core counts are not. README says so.
+- §8.6 used `PrecisionRecallDisplay(..., color=...)`, deprecated in sklearn
+  1.9 (FutureWarning, removal in 1.11). Now `curve_kwargs={"color": ...}`.
+- `seaborn` removed from `requirements.txt` (never imported).
+- Full notebook ~6.3 min (378 s) with the machine idle. HTML export ~2.5 MB.
 
 ## Commitments made in the notebook text (later sections must honour)
 
