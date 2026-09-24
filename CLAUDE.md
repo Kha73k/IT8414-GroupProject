@@ -156,6 +156,7 @@ identity (subject to the commit rules above), then the final working tree.
 | `phase3` | 5.0 (plus `import copy` and CONFIG option comments in 1.0) | Khalifa Alhashel |
 | `phase4` | 6.0 (plus `lstm_hidden` in CONFIG, 1.0) | Khalifa Alhashel |
 | `phase5` | 7.0 (plus `augment` in CONFIG, 1.0; `augment_batch` in 5.2; `build_model` in its own cell, 6.3) | Khalifa Alhashel |
+| `phase6` | 8.0 | Rashed Ramadham |
 
 Add a row per phase as snapshots are taken.
 
@@ -390,16 +391,51 @@ noise threshold **√2 × 0.0259 = 0.0366** val loss):
   as trained. The test set is still untouched.
 - Full notebook: **~7 min** (406 s).
 
+Measured in Phase 6 (§8.0 test set, first and only use):
+
+- **Deployment rule was fixed in §8.1 before any test metric**: primary macro
+  F1; threshold √2 × baseline val-acc seed std (0.0055) = **0.0078**; tie →
+  baseline. Keep it that way; never re-pick the metric after seeing results.
+- **Frozen seed-42 models, test:** baseline acc 0.9152, macro F1 **0.9165**,
+  ROC-AUC 0.9918, PR-AUC 0.9653, log loss 0.3183, worst recall STANDING 0.8102.
+  CNN-LSTM acc 0.8829, macro F1 **0.8822**, ROC-AUC 0.9882, PR-AUC 0.9540, log
+  loss 0.3477, worst SITTING 0.7760. Gap −0.0343 → **deploy baseline**.
+- **Post-decision robustness (seeds 0, 1, 2, 42 on test):** baseline macro F1
+  0.9123 ± 0.0051, CNN-LSTM 0.9060 ± 0.0165. **Seed 42 was the CNN-LSTM's worst
+  seed** (0.8822; others 0.909–0.920; it beats the baseline on seed 2). Mean gap
+  −0.0063 → tie → baseline again. **Decision robust; the margin is not.** The
+  CNN-LSTM is 3× *less* stable on test (reverses §6.3's validation finding).
+- **Confusion (seed 42):** sit↔stand 174 (baseline, **70%** of its 250 errors)
+  vs 175 (CNN-LSTM, of 345). Largest cell STAND→SIT (99 / 88): the §3.3
+  prediction is **confirmed**. **No moving window is ever read as static** by
+  either model. Static→moving: baseline 37, CNN-LSTM 57.
+- **Laying:** precision 1.000, recall 0.950 for both. **All 27 missed laying
+  windows are subject 10's**, predicted UPSTAIRS (baseline) / DOWNSTAIRS
+  (CNN-LSTM). Baseline laying probability for them is ≈0 (max 0.005). All 510
+  correct laying windows outrank every non-laying window (so AP 0.996).
+- **Per subject (baseline, test):** 10 **0.650**, 9 **0.767**, 4 0.883, 2 0.897,
+  the rest 0.983–1.000. Subjects 9 + 10 = **170 of 250 errors (68%)**;
+  **without them test acc = 0.9662 = validation 0.9663.** Baseline error types:
+  2 SIT→STAND 31; 4 STAND→SIT 36; 9 STAND→SIT 42, UP→WALK 11; 10 SIT→STAND 30,
+  LAY→UP 27, UP→DOWN 24, STAND→SIT 21.
+- Helpers in §8 for later sections: `models`, `DEPLOYED` / `deployed_model`,
+  `predict_proba`, `evaluate(model, X, y, average=)`, `plot_confusions(...)`,
+  `accuracy_by_subject`, `SHORT_NAMES`, `results`.
+- Full notebook: **~6.5 min** (382 s). §1.0 intro still says "a few minutes";
+  fix in Phase 8.
+
 ## Commitments made in the notebook text (later sections must honour)
 
 - **§7.0 (Khalifa): all delivered in Phase 5.** Capacity control (§7.5),
   random split (§7.6), regulariser ablation (§7.3), augmentation (§7.4), and a
   four-hyperparameter table with observations (§7.1).
-- **§8.0 (Rashed):** deployment decision on the test set (§6.3); check the
-  §3.3 prediction that sitting↔standing is the largest off-diagonal mass.
-- **§8.5 / §9.0 (Rashed):**
-  - inspect subjects 28/29's sitting/standing windows (§6.3);
-  - check whether misclassified static windows are postural adjustments
-    (§3.3 promised "section 8.5 checks").
+- **§8.0 (Rashed): delivered in Phase 6.** Deployment decision (baseline) and
+  the §3.3 prediction check (confirmed).
+- **§9.0 (Rashed), promised in §3.3, §6.3, §8.4–§8.7:**
+  - the 27 subject-10 laying windows read as walking: what do they look like?
+  - subjects 9 and 10's errors (§8.7 ends "§9.0 looks inside");
+  - subjects 28/29's validation sitting/standing windows (§6.3);
+  - whether misclassified static windows are postural adjustments (§3.3);
+  - an interpretability technique suited to 1-D signals (brief Part F).
   (§3.3 originally said §8.5, which is not in the brief's numbering. It now
   points to §9.0.)
