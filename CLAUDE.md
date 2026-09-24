@@ -157,6 +157,7 @@ identity (subject to the commit rules above), then the final working tree.
 | `phase4` | 6.0 (plus `lstm_hidden` in CONFIG, 1.0) | Khalifa Alhashel |
 | `phase5` | 7.0 (plus `augment` in CONFIG, 1.0; `augment_batch` in 5.2; `build_model` in its own cell, 6.3) | Khalifa Alhashel |
 | `phase6` | 8.0 | Rashed Ramadham |
+| `phase7` | 9.0, 10.0 | Rashed Ramadham |
 
 Add a row per phase as snapshots are taken.
 
@@ -424,6 +425,36 @@ Measured in Phase 6 (§8.0 test set, first and only use):
 - Full notebook: **~6.5 min** (382 s). §1.0 intro still says "a few minutes";
   fix in Phase 8.
 
+Measured in Phase 7 (§9.0 interpretability and error analysis, §10.0):
+
+- **Channel occlusion** (group set to 0 = training mean, deployed baseline,
+  test recall): hiding body_acc → walk 0.593, up 0.210, down 0.007. Gyro →
+  walk 0.907, up 0.820, rest within ~2 pts. **total_acc → standing 0.000,
+  laying 0.002**, sitting *rises* to 0.974 (all static → SIT: 478/491, 519/532,
+  499/537). Confirms §3.3: gravity carries the postures.
+- **Grad-CAM** on `block3` (all 2,697 correct test windows): moving classes
+  corr with |body acc| +0.48 to +0.52, CV 0.30–0.50; static classes corr −0.05
+  to −0.11, CV 0.09–0.12 (flat). Explains why the LSTM could not help static.
+- **Sit–stand orientation gap vs sit/stand accuracy** (15 val + test people):
+  **r = 0.75**. Subject 9 gap 0.087 → 0.421 (at chance); 10: 0.201 → 0.480; all
+  gaps < 0.30 score ≤ 0.75; ≥ 0.33 score ≥ 0.95 except val 29 (0.334 → 0.752,
+  explanation hedged, untested). Training gaps 0.169–0.576 (median 0.371);
+  training subjects 16 and 5: 0.253, 0.214.
+- **Subject 10 laying:** two recordings. Rows 954–984 (31, all correct,
+  orientation ≈ (−0.02, +0.61, −0.35)); rows 1105–1131 (27, **all wrong**,
+  ≈ (0.05, **−0.96**, 0.33)), energy 0.0087 (still). Nearest training window
+  0.64–0.78 g; **none within 0.5 g**; 1 of 969 training laying windows has
+  y < −0.5. Predicted UPSTAIRS at **0.977**. Upstairs has the most negative
+  training gravity y (−0.253): a plausible, *unproven* extrapolation.
+- **Static → moving (excluding subject 10's laying):** 10 windows; 6 above the
+  95th percentile of correctly read static energy (0.0340); rows 790–797 =
+  8 consecutive subject-9 sitting windows (~11.5 s), first 4 walking-level.
+- **Failure modes of the 250 errors:** sit↔stand 174, unseen laying 27, motion
+  in static 10, within walking 39.
+- Full notebook: 904 s on this run, **because a game was running**
+  (training 19.8 s vs ~9 s); results identical. Unloaded it is ~6.5–7 min.
+  §5 summary now says "roughly 10–20 s".
+
 ## Commitments made in the notebook text (later sections must honour)
 
 - **§7.0 (Khalifa): all delivered in Phase 5.** Capacity control (§7.5),
@@ -431,11 +462,9 @@ Measured in Phase 6 (§8.0 test set, first and only use):
   four-hyperparameter table with observations (§7.1).
 - **§8.0 (Rashed): delivered in Phase 6.** Deployment decision (baseline) and
   the §3.3 prediction check (confirmed).
-- **§9.0 (Rashed), promised in §3.3, §6.3, §8.4–§8.7:**
-  - the 27 subject-10 laying windows read as walking: what do they look like?
-  - subjects 9 and 10's errors (§8.7 ends "§9.0 looks inside");
-  - subjects 28/29's validation sitting/standing windows (§6.3);
-  - whether misclassified static windows are postural adjustments (§3.3);
-  - an interpretability technique suited to 1-D signals (brief Part F).
-  (§3.3 originally said §8.5, which is not in the brief's numbering. It now
-  points to §9.0.)
+- **§9.0 and §10.0 (Rashed): all delivered in Phase 7.** Subject 10's laying
+  (§9.5), subjects 9/10 (§9.3), subjects 28/29 via the gap analysis (§9.4),
+  postural adjustments (§9.6), and two interpretability techniques (§9.1–9.2).
+- **§10 future work names two things the demo could show but need not:**
+  out-of-distribution flagging (> 0.5 g from training) and per-user
+  calibration. Not built; do not add them unless asked.
